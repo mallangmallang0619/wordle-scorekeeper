@@ -15,7 +15,7 @@ export interface Message {
 
 export interface Config {
   wordleBotId: string | null; // null = accept any bot named "Wordle"
-  channels: Set<string>; // empty = all
+  channels: Set<string>; // env-level default; empty = all
 }
 
 /** Returns up to `limit` messages older than `before`, newest first. */
@@ -58,10 +58,16 @@ export class Core {
     return out;
   }
 
+  /** Is this channel one we should score? `/watch` (per server) wins over WORDLE_CHANNELS, which wins over "all". */
+  watches(guildId: string, channelId: string): boolean {
+    const chosen = this.db.channelFor(guildId);
+    if (chosen) return chosen === channelId;
+    return this.config.channels.size === 0 || this.config.channels.has(channelId);
+  }
+
   /** Live-message gate: right author and channel. */
   handle(m: Message): Scored | null {
-    if (!fromWordleApp(m, this.config)) return null;
-    if (this.config.channels.size && !this.config.channels.has(m.channelId)) return null;
+    if (!fromWordleApp(m, this.config) || !m.guildId || !this.watches(m.guildId, m.channelId)) return null;
     return this.score(m);
   }
 
@@ -99,6 +105,7 @@ const pts = (p: number) => (p >= 0 ? `+${p}` : `${p}`);
 // ---------------------------------------------------------------------------
 export interface Interaction {
   guildId: string;
+  channelId: string;
   userId: string;
   int(name: string): number | null;
   str(name: string): string | null;
@@ -115,6 +122,7 @@ export interface Reply {
 export const SORTS: Record<Sort, string> = { points: "Total points", perday: "Points per day", attempts: "Average guesses" };
 export const MAX_NAME_LENGTH = 32;
 export const SLOW_COMMANDS = new Set(["backfill"]);
+export const ADMIN_COMMANDS = new Set(["backfill", "watch", "unwatch"]);
 
 type Handler = (core: Core, i: Interaction) => Promise<Reply>;
 
@@ -193,6 +201,17 @@ export const commands: Record<string, Handler> = {
 
   async unlink(core, i) {
     return { content: core.db.unlinkName(i.guildId, i.userId) ? "Unlinked your name." : "You don't have a linked name.", ephemeral: true };
+  },
+
+  async watch(core, i) {
+    core.db.setChannel(i.guildId, i.channelId);
+    return { content: `Watching <#${i.channelId}> for Wordle summaries. Other channels are ignored.` };
+  },
+
+  async unwatch(core, i) {
+    const had = core.db.channelFor(i.guildId);
+    core.db.setChannel(i.guildId, null);
+    return { content: had ? `No longer pinned to <#${had}>; back to the default channel filter.` : "No channel was pinned." };
   },
 
   async backfill(core, i) {

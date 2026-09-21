@@ -86,6 +86,20 @@ describe("Core.handle", () => {
     expect(core.handle(msg())).not.toBeNull();
   });
   it("watches all channels when none configured", () => expect(makeCore().handle(msg({ channelId: "anything" }))).not.toBeNull());
+  it("a /watch'd channel overrides the env filter", () => {
+    const core = makeCore({ channels: new Set(["c1"]) });
+    core.db.setChannel("g1", "c9");
+    expect(core.handle(msg({ channelId: "c1" }))).toBeNull();
+    expect(core.handle(msg({ channelId: "c9" }))).not.toBeNull();
+    core.db.setChannel("g1", null);
+    expect(core.handle(msg({ channelId: "c1" }))).not.toBeNull();
+  });
+  it("watches() is per guild", () => {
+    const core = makeCore();
+    core.db.setChannel("g1", "c1");
+    expect(core.watches("g1", "c2")).toBe(false);
+    expect(core.watches("g2", "c2")).toBe(true);
+  });
 });
 
 describe("Core.announcement", () => {

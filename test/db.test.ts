@@ -167,3 +167,19 @@ describe("linked names", () => {
     expect(db.userIdForName("g2", "Kyle")).toBe("u2");
   });
 });
+
+describe("watched channel", () => {
+  it("is unset by default, can be set, replaced and cleared", () => {
+    expect(db.channelFor("g1")).toBeNull();
+    db.setChannel("g1", "c1");
+    expect(db.channelFor("g1")).toBe("c1");
+    db.setChannel("g1", "c2");
+    expect(db.channelFor("g1")).toBe("c2");
+    db.setChannel("g1", null);
+    expect(db.channelFor("g1")).toBeNull();
+  });
+  it("is per guild", () => {
+    db.setChannel("g1", "c1");
+    expect(db.channelFor("g2")).toBeNull();
+  });
+});

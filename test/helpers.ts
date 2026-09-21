@@ -29,6 +29,7 @@ export const makeCore = (config: Partial<Config> = {}) =>
 type Opts = Partial<Interaction> & { ints?: Record<string, number>; strs?: Record<string, string>; users?: Record<string, string> };
 export const interaction = ({ ints = {}, strs = {}, users = {}, ...rest }: Opts = {}): Interaction => ({
   guildId: "g1",
+  channelId: "c1",
   userId: "42",
   int: (n) => ints[n] ?? null,
   str: (n) => strs[n] ?? null,

@@ -12,7 +12,7 @@ import {
   SlashCommandBuilder,
   TextChannel,
 } from "discord.js";
-import { commands, Core, Fetcher, Reply, SLOW_COMMANDS, SORTS } from "./core.js";
+import { ADMIN_COMMANDS, commands, Core, Fetcher, Reply, SLOW_COMMANDS, SORTS } from "./core.js";
 import { WordleDb } from "./db.js";
 
 const TOKEN = process.env.DISCORD_TOKEN;
@@ -44,7 +44,7 @@ async function catchUp() {
   for (const guild of client.guilds.cache.values()) {
     for (const ch of guild.channels.cache.values()) {
       if (ch.type !== ChannelType.GuildText) continue;
-      if (core.config.channels.size && !core.config.channels.has(ch.id)) continue;
+      if (!core.watches(guild.id, ch.id)) continue;
       if (!ch.permissionsFor(guild.members.me!)?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory])) continue;
       total += await core.scan(fetcher(ch), CATCH_UP_LIMIT).catch((e) => (console.error(`catch-up #${ch.name}`, e), 0));
     }
@@ -69,12 +69,13 @@ const defs = [
   new SlashCommandBuilder().setName("scoring").setDescription("How points are awarded"),
   new SlashCommandBuilder().setName("link").setDescription("Link the name the Wordle app shows for you").addStringOption((o) => o.setName("name").setDescription("Your name in the results").setRequired(true)),
   new SlashCommandBuilder().setName("unlink").setDescription("Remove your linked name"),
+  new SlashCommandBuilder().setName("watch").setDescription("(Admin) Only score Wordle posts in this channel"),
+  new SlashCommandBuilder().setName("unwatch").setDescription("(Admin) Stop pinning to one channel"),
   new SlashCommandBuilder()
     .setName("backfill")
     .setDescription("(Admin) Scan this channel's history for past summaries")
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .addIntegerOption((o) => o.setName("limit").setDescription("Messages to look back (default 500)").setMinValue(1).setMaxValue(5000)),
-].map((c) => c.toJSON());
+].map((c) => (ADMIN_COMMANDS.has(c.name) ? c.setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild) : c).toJSON());
 
 function payload(r: Reply) {
   const embeds = r.embed ? [new EmbedBuilder().setTitle(r.embed.title).setDescription(r.embed.description).setColor(0x538d4e)] : [];
@@ -90,6 +91,7 @@ client.on(Events.InteractionCreate, async (i) => {
     if (slow) await i.deferReply({ ephemeral: true });
     const reply = await handler(core, {
       guildId: i.guildId,
+      channelId: i.channelId,
       userId: i.user.id,
       int: (n) => i.options.getInteger(n),
       str: (n) => i.options.getString(n),

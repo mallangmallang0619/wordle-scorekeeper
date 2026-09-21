@@ -15,6 +15,10 @@ CREATE TABLE IF NOT EXISTS players (
     name     TEXT NOT NULL COLLATE NOCASE,
     PRIMARY KEY (guild_id, user_id),
     UNIQUE (guild_id, name)
+);
+CREATE TABLE IF NOT EXISTS settings (
+    guild_id   TEXT PRIMARY KEY,
+    channel_id TEXT NOT NULL
 );`;
 
 export interface Result {
@@ -174,5 +178,16 @@ export class WordleDb {
       | { user_id: string }
       | undefined;
     return row?.user_id ?? null;
+  }
+
+  // -- watched channel ---------------------------------------------------------
+  setChannel(guildId: string, channelId: string | null): void {
+    if (channelId === null) this.db.prepare(`DELETE FROM settings WHERE guild_id = ?`).run(guildId);
+    else this.db.prepare(`INSERT INTO settings (guild_id, channel_id) VALUES (?, ?) ON CONFLICT (guild_id) DO UPDATE SET channel_id = excluded.channel_id`).run(guildId, channelId);
+  }
+
+  channelFor(guildId: string): string | null {
+    const row = this.db.prepare(`SELECT channel_id FROM settings WHERE guild_id = ?`).get(guildId) as { channel_id: string } | undefined;
+    return row?.channel_id ?? null;
   }
 }

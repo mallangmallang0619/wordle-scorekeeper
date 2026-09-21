@@ -152,6 +152,24 @@ describe("/link and /unlink", () => {
   });
 });
 
+describe("/watch and /unwatch", () => {
+  it("pins the current channel for the server", async () => {
+    const core = makeCore();
+    const r = await run(core, "watch", interaction({ channelId: "c7" }));
+    expect(r.content).toBe("Watching <#c7> for Wordle summaries. Other channels are ignored.");
+    expect(core.db.channelFor("g1")).toBe("c7");
+    expect(core.handle(msg({ channelId: "c7" }))).not.toBeNull();
+    expect(core.handle(msg({ channelId: "c1" }))).toBeNull();
+  });
+  it("unwatch clears it and reports either way", async () => {
+    const core = makeCore();
+    expect((await run(core, "unwatch")).content).toBe("No channel was pinned.");
+    await run(core, "watch", interaction({ channelId: "c7" }));
+    expect((await run(core, "unwatch")).content).toBe("No longer pinned to <#c7>; back to the default channel filter.");
+    expect(core.db.channelFor("g1")).toBeNull();
+  });
+});
+
 describe("/backfill", () => {
   it("scans the channel via the interaction's fetcher", async () => {
     const core = makeCore();
