@@ -110,7 +110,9 @@ export interface Interaction {
   int(name: string): number | null;
   str(name: string): string | null;
   user(name: string): string | null; // user id
-  fetch: Fetcher; // current channel, for /backfill
+  channel(name: string): string | null; // channel id
+  /** History fetcher for a channel id (null if it isn't a readable text channel). */
+  fetcherFor(channelId: string): Fetcher | null;
 }
 
 export interface Reply {
@@ -204,8 +206,10 @@ export const commands: Record<string, Handler> = {
   },
 
   async watch(core, i) {
-    core.db.setChannel(i.guildId, i.channelId);
-    return { content: `Watching <#${i.channelId}> for Wordle summaries. Other channels are ignored.` };
+    const channelId = i.channel("channel") ?? i.channelId;
+    if (!i.fetcherFor(channelId)) return { content: `<#${channelId}> isn't a text channel I can read.`, ephemeral: true };
+    core.db.setChannel(i.guildId, channelId);
+    return { content: `Watching <#${channelId}> for Wordle summaries. Other channels are ignored.` };
   },
 
   async unwatch(core, i) {
@@ -215,7 +219,10 @@ export const commands: Record<string, Handler> = {
   },
 
   async backfill(core, i) {
-    const found = await core.scan(i.fetch, i.int("limit") ?? 500);
-    return { content: `Backfill done: recorded ${found} daily summaries.`, ephemeral: true };
+    const channelId = i.channel("channel") ?? core.db.channelFor(i.guildId) ?? i.channelId;
+    const fetch = i.fetcherFor(channelId);
+    if (!fetch) return { content: `<#${channelId}> isn't a text channel I can read.`, ephemeral: true };
+    const found = await core.scan(fetch, i.int("limit") ?? 500);
+    return { content: `Backfill of <#${channelId}> done: recorded ${found} daily summaries.`, ephemeral: true };
   },
 };

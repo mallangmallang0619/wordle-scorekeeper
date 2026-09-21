@@ -32,8 +32,8 @@ scores each player, keeps it in SQLite, and answers slash commands.
 | `/puzzle [number]` | Everyone's result for one day |
 | `/scoring` | The table above |
 | `/link name:<name>` / `/unlink` | Link the name the Wordle app shows for you |
-| `/watch` / `/unwatch` | *(Manage Server)* only score posts in this channel (per server; overrides `WORDLE_CHANNELS`) |
-| `/backfill [limit]` | *(Manage Server)* record past summaries from this channel |
+| `/watch [#channel]` / `/unwatch` | *(Manage Server)* only score posts in one channel (default: current; overrides `WORDLE_CHANNELS`) |
+| `/backfill [#channel] [limit]` | *(Manage Server)* record past summaries (default: the watched channel) |
 
 ## Run
 
@@ -44,7 +44,7 @@ scores each player, keeps it in SQLite, and answers slash commands.
    cp .env.example .env   # add DISCORD_TOKEN
    npm start
    ```
-3. In the Wordle channel: `/watch`, then `/backfill`.
+3. `/watch #wordle`, then `/backfill limit:2000`.
 
 `.env`: `DISCORD_TOKEN` (required), `WORDLE_BOT_ID`, `WORDLE_CHANNELS`,
 `WORDLE_DB`, `ANNOUNCE`, `CATCH_UP_LIMIT` — see `.env.example`.

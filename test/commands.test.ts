@@ -161,6 +161,18 @@ describe("/watch and /unwatch", () => {
     expect(core.handle(msg({ channelId: "c7" }))).not.toBeNull();
     expect(core.handle(msg({ channelId: "c1" }))).toBeNull();
   });
+  it("accepts an explicit #channel", async () => {
+    const core = makeCore();
+    const r = await run(core, "watch", interaction({ channelId: "c1", channels: { channel: "c9" } }));
+    expect(r.content).toBe("Watching <#c9> for Wordle summaries. Other channels are ignored.");
+    expect(core.db.channelFor("g1")).toBe("c9");
+  });
+  it("refuses a channel it can't read", async () => {
+    const core = makeCore();
+    const r = await run(core, "watch", interaction({ channels: { channel: "voice" }, fetchers: {} }));
+    expect(r).toEqual({ content: "<#voice> isn't a text channel I can read.", ephemeral: true });
+    expect(core.db.channelFor("g1")).toBeNull();
+  });
   it("unwatch clears it and reports either way", async () => {
     const core = makeCore();
     expect((await run(core, "unwatch")).content).toBe("No channel was pinned.");
@@ -171,11 +183,28 @@ describe("/watch and /unwatch", () => {
 });
 
 describe("/backfill", () => {
-  it("scans the channel via the interaction's fetcher", async () => {
+  const history = [msg({ id: "3" }), msg({ id: "2", content: "Kyle was playing" }), msg({ id: "1", createdAt: new Date(POSTED_AT.getTime() - DAY) })];
+
+  it("scans the current channel by default", async () => {
     const core = makeCore();
-    const history = [msg({ id: "3" }), msg({ id: "2", content: "Kyle was playing" }), msg({ id: "1", createdAt: new Date(POSTED_AT.getTime() - DAY) })];
-    const r = await run(core, "backfill", interaction({ fetch: fetcherOver(history).fetch, ints: { limit: 50 } }));
-    expect(r).toEqual({ content: "Backfill done: recorded 2 daily summaries.", ephemeral: true });
+    const r = await run(core, "backfill", interaction({ fetchers: { c1: fetcherOver(history).fetch }, ints: { limit: 50 } }));
+    expect(r).toEqual({ content: "Backfill of <#c1> done: recorded 2 daily summaries.", ephemeral: true });
     expect(core.db.history("g1", "100", 10).map((x) => x.puzzle)).toEqual([PUZZLE, PUZZLE - 1]);
+  });
+  it("prefers the watched channel over where it was typed", async () => {
+    const core = makeCore();
+    core.db.setChannel("g1", "c9");
+    const r = await run(core, "backfill", interaction({ channelId: "c1", fetchers: { c1: async () => [], c9: fetcherOver(history).fetch } }));
+    expect(r.content).toBe("Backfill of <#c9> done: recorded 2 daily summaries.");
+  });
+  it("an explicit #channel beats both", async () => {
+    const core = makeCore();
+    core.db.setChannel("g1", "c9");
+    const r = await run(core, "backfill", interaction({ channels: { channel: "c5" }, fetchers: { c5: fetcherOver(history).fetch, c9: async () => [] } }));
+    expect(r.content).toBe("Backfill of <#c5> done: recorded 2 daily summaries.");
+  });
+  it("refuses an unreadable channel", async () => {
+    const r = await run(makeCore(), "backfill", interaction({ channels: { channel: "nope" }, fetchers: {} }));
+    expect(r).toEqual({ content: "<#nope> isn't a text channel I can read.", ephemeral: true });
   });
 });

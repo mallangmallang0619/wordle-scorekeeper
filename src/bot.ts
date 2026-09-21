@@ -69,11 +69,15 @@ const defs = [
   new SlashCommandBuilder().setName("scoring").setDescription("How points are awarded"),
   new SlashCommandBuilder().setName("link").setDescription("Link the name the Wordle app shows for you").addStringOption((o) => o.setName("name").setDescription("Your name in the results").setRequired(true)),
   new SlashCommandBuilder().setName("unlink").setDescription("Remove your linked name"),
-  new SlashCommandBuilder().setName("watch").setDescription("(Admin) Only score Wordle posts in this channel"),
+  new SlashCommandBuilder()
+    .setName("watch")
+    .setDescription("(Admin) Only score Wordle posts in one channel")
+    .addChannelOption((o) => o.setName("channel").setDescription("Defaults to this channel").addChannelTypes(ChannelType.GuildText)),
   new SlashCommandBuilder().setName("unwatch").setDescription("(Admin) Stop pinning to one channel"),
   new SlashCommandBuilder()
     .setName("backfill")
-    .setDescription("(Admin) Scan this channel's history for past summaries")
+    .setDescription("(Admin) Scan a channel's history for past summaries")
+    .addChannelOption((o) => o.setName("channel").setDescription("Defaults to the watched channel, else this one").addChannelTypes(ChannelType.GuildText))
     .addIntegerOption((o) => o.setName("limit").setDescription("Messages to look back (default 500)").setMinValue(1).setMaxValue(5000)),
 ].map((c) => (ADMIN_COMMANDS.has(c.name) ? c.setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild) : c).toJSON());
 
@@ -96,7 +100,11 @@ client.on(Events.InteractionCreate, async (i) => {
       int: (n) => i.options.getInteger(n),
       str: (n) => i.options.getString(n),
       user: (n) => i.options.getUser(n)?.id ?? null,
-      fetch: i.channel?.type === ChannelType.GuildText ? fetcher(i.channel) : async () => [],
+      channel: (n) => i.options.getChannel(n)?.id ?? null,
+      fetcherFor: (id) => {
+        const ch = i.guild?.channels.cache.get(id);
+        return ch?.type === ChannelType.GuildText ? fetcher(ch) : null;
+      },
     });
     await (slow ? i.editReply(payload(reply)) : i.reply(payload(reply)));
   } catch (e) {

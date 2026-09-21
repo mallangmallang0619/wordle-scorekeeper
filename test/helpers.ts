@@ -1,4 +1,4 @@
-import { Config, Core, Interaction, Message } from "../src/core.js";
+import { Config, Core, Fetcher, Interaction, Message } from "../src/core.js";
 import { WordleDb } from "../src/db.js";
 
 export const WORDLE_APP = { id: "999", bot: true, username: "Wordle" };
@@ -26,15 +26,23 @@ export const msg = (o: Partial<Message> = {}): Message => ({
 export const makeCore = (config: Partial<Config> = {}) =>
   new Core(new WordleDb(":memory:"), { wordleBotId: null, channels: new Set(), ...config });
 
-type Opts = Partial<Interaction> & { ints?: Record<string, number>; strs?: Record<string, string>; users?: Record<string, string> };
-export const interaction = ({ ints = {}, strs = {}, users = {}, ...rest }: Opts = {}): Interaction => ({
+type Opts = Partial<Interaction> & {
+  ints?: Record<string, number>;
+  strs?: Record<string, string>;
+  users?: Record<string, string>;
+  channels?: Record<string, string>;
+  /** Readable text channels → their history fetcher. Default: every channel is readable and empty. */
+  fetchers?: Record<string, Fetcher>;
+};
+export const interaction = ({ ints = {}, strs = {}, users = {}, channels = {}, fetchers, ...rest }: Opts = {}): Interaction => ({
   guildId: "g1",
   channelId: "c1",
   userId: "42",
   int: (n) => ints[n] ?? null,
   str: (n) => strs[n] ?? null,
   user: (n) => users[n] ?? null,
-  fetch: async () => [],
+  channel: (n) => channels[n] ?? null,
+  fetcherFor: (id) => (fetchers ? fetchers[id] ?? null : async () => []),
   ...rest,
 });
 
