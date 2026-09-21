@@ -1,0 +1,10 @@
+services:
+  wordle-bot:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - wordle-data:/data
+
+volumes:
+  wordle-data:
